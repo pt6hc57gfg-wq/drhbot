@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: drh-casino-bot
+    env: python
+    plan: free
+    buildCommand: "pip install --only-binary :all: aiogram==2.25.1 supabase==2.3.0"
+    startCommand: "python main.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.10
