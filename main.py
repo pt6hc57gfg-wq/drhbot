@@ -1,3 +1,9 @@
+import os
+try:
+    import aiocryptopay
+except ImportError:
+    os.system('pip install aiocryptopay')
+    import aiocryptopay
 import logging
 import asyncio
 import threading
