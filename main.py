@@ -21,7 +21,7 @@ from aiocryptopay import AioCryptoPay
 SUPABASE_URL = "https://nlaadpwjsgwurbxtjyim.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYWFkcHdqc2d3dXJieHRqeWltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzOTYzMTcsImV4cCI6MjA4NTk3MjMxN30.T3h8LomhBI7bjIdXRMQMwUlhVobFQzJhvMlfg_BYFBg"
 TOKEN = "8390269866:AAHhAC9qEnUCauTQAVR23f9kHRWxUBwy6Nw"
-CP_TOKEN = "526176:AASOM7OVc65IQGln05FUu4cn6Jx2EtXJRFx" # Вставь токен из @CryptoTestBot или @CryptoBot
+CP_TOKEN = "526176:AAhBqlDV6Nwz6GP2TzlJtkkkU8kV3A8moLJ" # Вставь токен из @CryptoTestBot или @CryptoBot
 
 ADMIN_ID = 8415442561             
 ADMIN_USERNAME = "cemplex"       
