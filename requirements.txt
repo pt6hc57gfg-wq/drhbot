@@ -1,8 +1,7 @@
 aiogram==2.25.1
 supabase
 aiocryptopay
-asyncio
-httpx
+
 
 
 
