@@ -58,8 +58,14 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher(bot, storage=MemoryStorage())
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-crypto = AioCryptoPay(token=CP_TOKEN)
-
+crypto = # Найти эту строку:
+# crypto = AioCryptoPay(token=CP_TOKEN)
+# И заменить на этот блок:
+try:
+    crypto = AioCryptoPay(token=CP_TOKEN)
+    logging.info("CryptoPay initialized successfully")
+except Exception as e:
+    logging.error(f"КРИТИЧЕСКАЯ ОШИБКА ТОКЕНА CRYPTOPAY: {e}")
 class DepositState(StatesGroup):
     waiting_for_amount = State()
 
