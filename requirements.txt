@@ -1,8 +1,9 @@
 aiogram==2.25.1
-supabase==2.3.0
-aiocryptopay==0.2.2
+supabase
+aiocryptopay
 asyncio
 httpx
+
 
 
 
