@@ -15,7 +15,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from supabase import create_client, Client
-from aiocryptopay import CryptoPay
+from aiocryptopay import AioCryptoPay
 
 # ================== 1. НАСТРОЙКИ ==================
 SUPABASE_URL = "https://nlaadpwjsgwurbxtjyim.supabase.co"
@@ -58,7 +58,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher(bot, storage=MemoryStorage())
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-crypto = CryptoPay(token=CP_TOKEN)
+crypto = AioCryptoPay(token=CP_TOKEN)
 
 class DepositState(StatesGroup):
     waiting_for_amount = State()
