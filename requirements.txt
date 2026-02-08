@@ -1,8 +1,9 @@
 aiogram==2.25.1
 aiohttp==3.8.6
-supabase==2.3.0
-Flask==3.0.0
-Babel==2.9.1
+supabase
+flask
+gunicorn
+
 
 
 
