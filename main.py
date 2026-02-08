@@ -337,7 +337,7 @@ async def join_game(c: types.CallbackQuery):
     await asyncio.sleep(4)
     m2 = await bot.send_dice(c.message.chat.id, emoji=emoji); v2 = m2.dice.value
     
-    win_sum = round((bet * 2) * 0.95, 2); game_num = get_game_number(); winner_id, loser_id = None, None
+    win_sum = round((bet * 2) * 0.90, 2); game_num = get_game_number(); winner_id, loser_id = None, None
     if v1 > v2: update_balance(cr_id, win_sum); winner_id, loser_id = cr_id, jo_id
     elif v2 > v1: update_balance(jo_id, win_sum); winner_id, loser_id = jo_id, cr_id
     else: update_balance(cr_id, bet); update_balance(jo_id, bet)
@@ -348,7 +348,7 @@ async def join_game(c: types.CallbackQuery):
     res_text = (
         f"<b>{g_type.capitalize()} {emoji} №{game_num}</b>\n\n"
         f"📎 <a href='{CHAT_LINK}'>Наш чат</a>\n\n"
-        f"💰 Выигрыш: <b>{win_sum if winner_id else '0'} RUB</b>\n\n"
+        f"💰 Выигрыш: <b>{win_sum if winner_id else '0'} RUB (Комиссия 10%)</b>\n\n"
         f"👥 Игроки:\n1️⃣ - {cr_u['name']}\n2️⃣ - {jo_u['name']}\n\n"
         f"⚡️ Победитель: {get_user(winner_id)['name'] if winner_id else 'Ничья (возврат)'}"
     )
