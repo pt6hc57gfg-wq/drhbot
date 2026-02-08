@@ -1,80 +1,51 @@
 import logging
 import asyncio
-import threading
 import os
-import sys
-from http.server import HTTPServer, BaseHTTPRequestHandler
-
-# --- АВТО-УСТАНОВКА БИБЛИОТЕК ---
-try:
-    from aiogram import Bot, Dispatcher, types, executor
-    from aiogram.contrib.fsm_storage.memory import MemoryStorage
-    from aiogram.dispatcher import FSMContext
-    from aiogram.dispatcher.filters.state import State, StatesGroup
-    from supabase import create_client, Client
-    from aiocryptopay import AioCryptoPay
-except ImportError:
-    os.system('pip install aiogram==2.25.1 supabase aiocryptopay httpx')
-    os.execv(sys.executable, ['python'] + sys.argv)
+from aiogram import Bot, Dispatcher, types, executor
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from supabase import create_client, Client
 
 # ================== 1. НАСТРОЙКИ ==================
 SUPABASE_URL = "https://nlaadpwjsgwurbxtjyim.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYWFkcHdqc2d3dXJieHRqeWltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzOTYzMTcsImV4cCI6MjA4NTk3MjMxN30.T3h8LomhBI7bjIdXRMQMwUlhVobFQzJhvMlfg_BYFBg"
 
 TOKEN = "8390269866:AAHhAC9qEnUCauTQAVR23f9kHRWxUBwy6Nw"
-CP_TOKEN = "526176:AAK1hOScJeeHYEnvAvgYhMNkNL1KZfN6ps7" # Вставь токен от @CryptoBot
-
-ADMIN_ID = 8415442561             
-ADMIN_USERNAME = "cemplex"       
+ADMIN_ID = 8415442561  # Твой ID для проверки чеков         
 GROUP_ID = -1003872240307       
 CHAT_LINK = "https://t.me/drhcasino_chat"
-FEE = 0.95 
+ADMIN_USERNAME = "cemplex" # Твой юзернейм без @
 
-# ИЗОБРАЖЕНИЯ
+# Твои реквизиты
+CARD_REQUISITES = "2200700764562608"
+
+# КАРТИНКИ
 IMG_WALLET = "https://i.postimg.cc/htmRmFP1/IMG_6662.png"
+IMG_PROFILE = "https://i.postimg.cc/VvTM30tg/IMG_6661.png"
 IMG_SUPPORT = "https://i.postimg.cc/VvTM30tg/IMG-6661.png"
-IMG_RULES = "https://i.postimg.cc/gcZ5gvby/IMG_6698.jpg"
-IMG_PROFILE = "https://i.postimg.cc/m2fyr9zM/IMG-6663.png"
-IMG_SUCCESS_PAY = "https://i.postimg.cc/FHXk34V5/IMG-6654.png"
+IMG_RULES = "https://i.postimg.cc/gcZ5gvby/IMG_6698.jpg" # ЗАМЕНИ ССЫЛКУ ЕСЛИ НУЖНО
 
 GAMES_EMOJI = {"кубик": "🎲", "дартс": "🎯", "баскет": "🏀", "футбол": "⚽️", "боулинг": "🎳"}
 
-# ================== 2. KEEP-ALIVE ==================
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200); self.end_headers()
-        self.wfile.write(b"OK")
-    def log_message(self, format, *args): return
-
-def run_health_check():
-    port = int(os.environ.get("PORT", 10000))
-    HTTPServer(('0.0.0.0', port), HealthCheckHandler).serve_forever()
-
-threading.Thread(target=run_health_check, daemon=True).start()
-
-# ================== 3. ИНИЦИАЛИЗАЦИЯ ==================
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher(bot, storage=MemoryStorage())
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-crypto = AioCryptoPay(token=CP_TOKEN)
 
 class DepositState(StatesGroup):
     waiting_for_amount = State()
+    waiting_for_check = State()
 
-# --- ФУНКЦИИ ---
+# ================== 2. БАЗА ДАННЫХ ==================
 def get_user(user_id):
     res = supabase.table("users").select("*").eq("user_id", user_id).execute()
     return res.data[0] if res.data else None
 
-def register_user(user_id, name):
-    if not get_user(user_id):
-        supabase.table("users").insert({"user_id": user_id, "name": name, "balance": 0.0}).execute()
-
 def update_balance(user_id, amount):
-    user = get_user(user_id)
-    if user:
-        new_bal = round(user['balance'] + amount, 2)
+    u = get_user(user_id)
+    if u:
+        new_bal = round(float(u['balance']) + amount, 2)
         supabase.table("users").update({"balance": new_bal}).eq("user_id", user_id).execute()
         return new_bal
     return 0
@@ -82,111 +53,150 @@ def update_balance(user_id, amount):
 def get_game_number():
     try:
         res = supabase.table("stats").select("value").eq("name", "games_count").execute()
-        if not res.data:
-            supabase.table("stats").insert({"name": "games_count", "value": 1}).execute()
-            return 1
-        new_val = res.data[0]['value'] + 1
-        supabase.table("stats").update({"value": new_val}).eq("name", "games_count").execute()
-        return new_val
+        val = res.data[0]['value'] + 1 if res.data else 1
+        supabase.table("stats").upsert({"name": "games_count", "value": val}).execute()
+        return val
     except: return 0
 
-async def send_safely(chat_id, photo_url, caption, reply_markup=None):
-    try: await bot.send_photo(chat_id, photo=photo_url, caption=caption, reply_markup=reply_markup)
-    except: await bot.send_message(chat_id, text=caption, reply_markup=reply_markup)
+# ================== 3. ОБРАБОТЧИКИ МЕНЮ ==================
 
-def main_kb():
+@dp.message_handler(commands=['start'], state="*")
+async def cmd_start(m: types.Message, state: FSMContext):
+    await state.finish()
+    if not get_user(m.from_user.id):
+        supabase.table("users").insert({"user_id": m.from_user.id, "name": m.from_user.first_name, "balance": 0.0}).execute()
+    
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add("👤 Профиль", "🎮 Список Игр", "👛 Кошелек", "📊 ТОП", "ℹ️ Правила", "🆘 Поддержка", "🚀 Чат проекта")
-    return kb
+    kb.add("👤 Профиль", "🎮 Список Игр")
+    kb.add("👛 Кошелек", "📊 ТОП")
+    kb.add("ℹ️ Правила", "🆘 Поддержка")
+    kb.add("🚀 Чат проекта")
+    await m.answer("🎲 <b>Добро пожаловать в DRH CASINO!</b>", reply_markup=kb)
 
-# ================== 4. ОБРАБОТЧИКИ ==================
+@dp.message_handler(lambda m: m.text == "👤 Профиль", state="*")
+async def profile(m: types.Message):
+    u = get_user(m.from_user.id)
+    bal = u['balance'] if u else 0.0
+    await bot.send_photo(m.chat.id, photo=IMG_PROFILE, caption=f"<b>🖥️ ПРОФИЛЬ</b>\n\n🆔 ID: <code>{m.from_user.id}</code>\n👛 Баланс: <b>{bal} RUB</b>")
 
-# КОМАНДЫ БАЛАНСА (/бал, /b, bal)
-@dp.message_handler(commands=['бал', 'b', 'bal'])
-@dp.message_handler(lambda m: m.text and m.text.lower() in ['бал', 'b', 'bal'])
-async def check_balance_chat(m: types.Message):
+@dp.message_handler(lambda m: m.text == "👛 Кошелек", state="*")
+async def wallet(m: types.Message):
+    u = get_user(m.from_user.id)
+    bal = u['balance'] if u else 0.0
+    kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("➕ Пополнить баланс", callback_data="sbp_dep"))
+    await bot.send_photo(m.chat.id, photo=IMG_WALLET, caption=f"<b>👛 КОШЕЛЕК</b>\n\n🪙 Баланс: <b>{bal} RUB</b>", reply_markup=kb)
+
+# --- НОВОЕ: ПОДДЕРЖКА И ПРАВИЛА ---
+
+@dp.message_handler(lambda m: m.text == "🆘 Поддержка", state="*")
+async def support(m: types.Message):
+    text = f"🆘 <b>Техническая поддержка</b>\n\nЕсли у вас возникли вопросы или проблемы с оплатой, пишите нашему администратору:\n\n👤 Контакт: @{ADMIN_USERNAME}"
+    await bot.send_photo(m.chat.id, photo=IMG_SUPPORT, caption=text)
+
+@dp.message_handler(lambda m: m.text == "ℹ️ Правила", state="*")
+async def rules(m: types.Message):
+    text = (
+        f"ℹ️ <b>Правила DRH CASINO</b>\n\n"
+        f"1. Минимальная сумма пополнения — 100 RUB.\n"
+        f"2. Комиссия проекта составляет 5% с каждого выигрыша.\n"
+        f"3. Игры проводятся честно через встроенные кубики Telegram.\n"
+        f"4. При пополнении обязательно отправляйте скриншот чека!"
+    )
+    await bot.send_photo(m.chat.id, photo=IMG_RULES, caption=text)
+
+# ================== 4. ЛОГИКА ПОПОЛНЕНИЯ ==================
+
+@dp.callback_query_handler(lambda c: c.data == "sbp_dep", state="*")
+async def sbp_dep(c: types.CallbackQuery):
+    await c.message.answer("💰 <b>Введите желаемую сумму пополнения в RUB:</b>")
+    await DepositState.waiting_for_amount.set()
+    await c.answer()
+
+@dp.message_handler(state=DepositState.waiting_for_amount)
+async def sbp_amount(m: types.Message, state: FSMContext):
+    try:
+        amount = float(m.text.replace(',', '.'))
+        if amount < 1: return await m.answer("❌ Введите корректную сумму")
+        await state.update_data(amount=amount)
+        
+        text = (
+            f"🏆 <b>Пополнение баланса:</b>\n\n"
+            f"ℹ️ Чтобы пополнить баланс пожалуйста скиньте желаемую сумму на реквизиты и <b>ОБЯЗАТЕЛЬНО</b> отправьте скриншот (не файл) чек оплаты, иначе без него я не отправлю денежные средства!\n\n"
+            f"🎯 Реквизиты для пополнения - <code>{CARD_REQUISITES}</code>\n\n"
+            f"⁉️ После отправки скриншота ожидайте некоторое время и баланс пополнится!"
+        )
+        await m.answer(text)
+        await DepositState.waiting_for_check.set()
+    except: await m.answer("❌ Пожалуйста, введите сумму числом.")
+
+@dp.message_handler(content_types=['photo'], state=DepositState.waiting_for_check)
+async def sbp_check(m: types.Message, state: FSMContext):
+    data = await state.get_data()
+    amount = data.get('amount', 0)
+    await state.finish()
+    
+    await m.answer("⏳ <b>Ваш скриншот отправлен на проверку!</b>\nОжидайте зачисления средств.")
+    
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton(f"✅ Зачислить {amount}₽", callback_data=f"adm_ok_{m.from_user.id}_{amount}"),
+           types.InlineKeyboardButton("❌ Отклонить", callback_data=f"adm_no_{m.from_user.id}"))
+    
+    await bot.send_photo(ADMIN_ID, photo=m.photo[-1].file_id, 
+                         caption=f"🔔 <b>НОВЫЙ ЧЕК</b>\nИгрок: {m.from_user.mention} (ID: <code>{m.from_user.id}</code>)\nСумма: <b>{amount} RUB</b>", 
+                         reply_markup=kb)
+
+# --- ПОДТВЕРЖДЕНИЕ АДМИНОМ ---
+@dp.callback_query_handler(lambda c: c.data.startswith('adm_'))
+async def admin_decision(c: types.CallbackQuery):
+    data = c.data.split('_')
+    action = data[1]
+    user_id = int(data[2])
+    
+    if action == 'ok':
+        amount = float(data[3])
+        update_balance(user_id, amount)
+        try:
+            await bot.send_message(user_id, f"✅ <b>Баланс пополнен!</b>\nЗачислено: <b>{amount} RUB</b>\nУдачи в играх! 🎰")
+        except: pass
+        await c.message.edit_caption(f"✅ ОДОБРЕНО. Зачислено {amount} RUB для ID {user_id}")
+    else:
+        try:
+            await bot.send_message(user_id, "❌ <b>Ваш чек был отклонен администратором.</b>\nЕсли вы уверены в оплате, свяжитесь с поддержкой.")
+        except: pass
+        await c.message.edit_caption(f"❌ ОТКЛОНЕНО для ID {user_id}")
+    await c.answer()
+
+# --- КОМАНДЫ БАЛАНСА В ЧАТЕ ---
+@dp.message_handler(commands=['бал', 'b', 'bal'], state="*")
+@dp.message_handler(lambda m: m.text and m.text.lower() in ['бал', 'b', 'bal'], state="*")
+async def chat_bal(m: types.Message):
     u = get_user(m.from_user.id)
     bal = u['balance'] if u else 0.0
     await m.reply(f"💰 Ваш баланс: <b>{bal} RUB</b>")
 
-@dp.message_handler(commands=['start'])
-async def cmd_start(m: types.Message):
-    register_user(m.from_user.id, m.from_user.first_name)
-    await m.answer("🎲 <b>Добро пожаловать в DRH CASINO!</b>", reply_markup=main_kb())
-
-@dp.message_handler(lambda m: m.text == "👤 Профиль")
-async def profile_btn(m: types.Message):
-    u = get_user(m.from_user.id)
-    bal = u['balance'] if u else 0
-    txt = f"<b>🖥️ Профиль</b>\n\n👤 Ник: {m.from_user.full_name}\n👛 Баланс: <b>{bal} RUB</b>"
-    await send_safely(m.chat.id, IMG_PROFILE, txt)
-
-@dp.message_handler(lambda m: m.text == "👛 Кошелек")
-async def wallet_btn(m: types.Message):
-    u = get_user(m.from_user.id)
-    bal = u['balance'] if u else 0
-    txt = f"<b>👛 Кошелек</b>\n\n🪙 Баланс: {bal} RUB"
-    kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("➕ Пополнить", callback_data="dep_init"))
-    await send_safely(m.chat.id, IMG_WALLET, txt, kb)
-
-@dp.callback_query_handler(lambda c: c.data == 'dep_init')
-async def dep_start(c: types.CallbackQuery):
-    await c.message.answer("💳 <b>Введите сумму в RUB (мин. 100):</b>")
-    await DepositState.waiting_for_amount.set()
-
-@dp.message_handler(state=DepositState.waiting_for_amount)
-async def create_inv(m: types.Message, state: FSMContext):
-    try:
-        amount = float(m.text.replace(',', '.'))
-        if amount < 100: raise ValueError
-    except: return await m.answer("❌ Минимум 100 RUB")
-    
-    await state.finish()
-    try:
-        inv = await crypto.create_invoice(asset='TON', amount=amount, fiat='RUB', currency_type='fiat')
-        kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🔗 ОПЛАТИТЬ", url=inv.pay_url),
-                                              types.InlineKeyboardButton("✅ ПРОВЕРИТЬ", callback_data=f"check_{inv.invoice_id}"))
-        await m.answer(f"💎 Счет на {amount}₽ создан!", reply_markup=kb)
-    except Exception as e: await m.answer(f"❌ Ошибка платежки: {e}")
-
-@dp.callback_query_handler(lambda c: c.data.startswith('check_'))
-async def check_pay(c: types.CallbackQuery):
-    inv_id = int(c.data.split('_')[1])
-    invs = await crypto.get_invoices(invoice_ids=inv_id)
-    inv = invs[0]
-    if inv.status == 'paid':
-        sum_add = float(inv.fiat_amount or inv.amount)
-        update_balance(c.from_user.id, sum_add)
-        await c.message.edit_text(f"✅ Зачислено {sum_add} RUB!")
-        try:
-            chat_txt = f"💰 <b>НОВОЕ ПОПОЛНЕНИЕ!</b>\n\n👤 Игрок: {c.from_user.mention}\n💵 Сумма: <b>{sum_add} RUB</b>"
-            await bot.send_photo(GROUP_ID, photo=IMG_SUCCESS_PAY, caption=chat_txt)
-        except: pass
-    else: await c.answer("⏳ Оплата не найдена", show_alert=True)
-
-# ИГРОВАЯ ЛОГИКА
-@dp.message_handler(commands=['game'])
-async def start_game_cmd(m: types.Message):
+# --- ИГРОВАЯ ЛОГИКА ---
+@dp.message_handler(commands=['game'], state="*")
+async def start_game(m: types.Message):
     if m.chat.id == m.from_user.id: return 
     args = m.get_args().split()
     if len(args) < 2: return await m.answer("Пример: <code>/game 100 кубик</code>")
-    try: bet = float(args[0])
+    try: bet = float(args[0]); g_type = args[1].lower()
     except: return
-    g_type = args[1].lower()
     if g_type not in GAMES_EMOJI: return
     u = get_user(m.from_user.id)
-    if not u or u['balance'] < bet: return await m.answer("❌ Нет денег!")
+    if not u or u['balance'] < bet: return await m.answer("❌ Недостаточно средств")
+    
     emoji = GAMES_EMOJI[g_type]
     kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(f"Принять {bet}₽ {emoji}", callback_data=f"j_{m.from_user.id}_{bet}_{g_type}"))
     await m.answer(f"🎮 <b>БИТВА</b>\n👤 {m.from_user.mention} ставит <b>{bet}₽</b>", reply_markup=kb)
 
-@dp.callback_query_handler(lambda c: c.data.startswith('j_'))
-async def join_game_callback(c: types.CallbackQuery):
+@dp.callback_query_handler(lambda c: c.data.startswith('j_'), state="*")
+async def join_game(c: types.CallbackQuery):
     _, cr_id, bet, g_type = c.data.split('_')
     cr_id, bet, jo_id = int(cr_id), float(bet), c.from_user.id
-    if jo_id == cr_id: return await c.answer("С собой нельзя!", show_alert=True)
+    if jo_id == cr_id: return await c.answer("Нельзя с собой!", show_alert=True)
     cr_u, jo_u = get_user(cr_id), get_user(jo_id)
-    if not jo_u or jo_u['balance'] < bet: return await c.answer("Нет денег!", show_alert=True)
+    if not jo_u or jo_u['balance'] < bet: return await c.answer("❌ Нет денег!", show_alert=True)
     
     update_balance(cr_id, -bet); update_balance(jo_id, -bet)
     emoji = GAMES_EMOJI[g_type]
@@ -195,9 +205,8 @@ async def join_game_callback(c: types.CallbackQuery):
     m1 = await bot.send_dice(c.message.chat.id, emoji=emoji); v1 = m1.dice.value
     await asyncio.sleep(4)
     m2 = await bot.send_dice(c.message.chat.id, emoji=emoji); v2 = m2.dice.value
-    await asyncio.sleep(1)
     
-    win_sum = round((bet * 2) * FEE, 2)
+    win_sum = round((bet * 2) * 0.95, 2)
     game_num = get_game_number()
     winner = None
     if v1 > v2: update_balance(cr_id, win_sum); winner = cr_u
@@ -215,12 +224,10 @@ async def join_game_callback(c: types.CallbackQuery):
     )
     await bot.send_message(c.message.chat.id, res_text, disable_web_page_preview=True)
 
-async def on_startup(dp):
-    try:
-        me = await crypto.get_me()
-        logging.info(f"✅ CryptoPay подключен: {me.name}")
-    except Exception as e:
-        logging.error(f"❌ ОШИБКА CRYPTOPAY: {e}")
+@dp.message_handler(lambda m: m.text == "🚀 Чат проекта", state="*")
+async def project_chat(m: types.Message):
+    kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("➡️ В ЧАТ", url=CHAT_LINK))
+    await bot.send_message(m.chat.id, "Заходи в наш чат и играй с другими!", reply_markup=kb)
 
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
+    executor.start_polling(dp, skip_updates=True)
