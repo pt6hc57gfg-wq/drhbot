@@ -13,18 +13,19 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 TOKEN = "8390269866:AAHhAC9qEnUCauTQAVR23f9kHRWxUBwy6Nw"
 ADMIN_ID = 8415442561  # Твой ID для проверки чеков         
-GROUP_ID = -1003872240307       
+GROUP_ID = -1003872240307 # ID чата для уведомлений      
 CHAT_LINK = "https://t.me/drhcasino_chat"
-ADMIN_USERNAME = "cemplex" # Твой юзернейм без @
+ADMIN_USERNAME = "cemplex" 
 
 # Твои реквизиты
 CARD_REQUISITES = "2200700764562608"
 
-# КАРТИНКИ
+# КАРТИНКИ (Добавлены все ссылки)
 IMG_WALLET = "https://i.postimg.cc/htmRmFP1/IMG_6662.png"
 IMG_PROFILE = "https://i.postimg.cc/VvTM30tg/IMG_6661.png"
 IMG_SUPPORT = "https://i.postimg.cc/VvTM30tg/IMG-6661.png"
-IMG_RULES = "https://i.postimg.cc/gcZ5gvby/IMG_6698.jpg" # ЗАМЕНИ ССЫЛКУ ЕСЛИ НУЖНО
+IMG_RULES = "https://i.postimg.cc/gcZ5gvby/IMG_6698.jpg"
+IMG_SUCCESS_PAY = "https://i.postimg.cc/FHXk34V5/IMG-6654.png" # КАРТИНКА ДЛЯ ЧАТА ПРИ ПОПОЛНЕНИИ
 
 GAMES_EMOJI = {"кубик": "🎲", "дартс": "🎯", "баскет": "🏀", "футбол": "⚽️", "боулинг": "🎳"}
 
@@ -67,10 +68,7 @@ async def cmd_start(m: types.Message, state: FSMContext):
         supabase.table("users").insert({"user_id": m.from_user.id, "name": m.from_user.first_name, "balance": 0.0}).execute()
     
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add("👤 Профиль", "🎮 Список Игр")
-    kb.add("👛 Кошелек", "📊 ТОП")
-    kb.add("ℹ️ Правила", "🆘 Поддержка")
-    kb.add("🚀 Чат проекта")
+    kb.add("👤 Профиль", "🎮 Список Игр", "👛 Кошелек", "📊 ТОП", "ℹ️ Правила", "🆘 Поддержка", "🚀 Чат проекта")
     await m.answer("🎲 <b>Добро пожаловать в DRH CASINO!</b>", reply_markup=kb)
 
 @dp.message_handler(lambda m: m.text == "👤 Профиль", state="*")
@@ -86,29 +84,20 @@ async def wallet(m: types.Message):
     kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("➕ Пополнить баланс", callback_data="sbp_dep"))
     await bot.send_photo(m.chat.id, photo=IMG_WALLET, caption=f"<b>👛 КОШЕЛЕК</b>\n\n🪙 Баланс: <b>{bal} RUB</b>", reply_markup=kb)
 
-# --- НОВОЕ: ПОДДЕРЖКА И ПРАВИЛА ---
-
 @dp.message_handler(lambda m: m.text == "🆘 Поддержка", state="*")
 async def support(m: types.Message):
-    text = f"🆘 <b>Техническая поддержка</b>\n\nЕсли у вас возникли вопросы или проблемы с оплатой, пишите нашему администратору:\n\n👤 Контакт: @{ADMIN_USERNAME}"
-    await bot.send_photo(m.chat.id, photo=IMG_SUPPORT, caption=text)
+    await bot.send_photo(m.chat.id, photo=IMG_SUPPORT, caption=f"🆘 <b>Техническая поддержка</b>\n\nПишите администратору: @{ADMIN_USERNAME}")
 
 @dp.message_handler(lambda m: m.text == "ℹ️ Правила", state="*")
 async def rules(m: types.Message):
-    text = (
-        f"ℹ️ <b>Правила DRH CASINO</b>\n\n"
-        f"1. Минимальная сумма пополнения — 100 RUB.\n"
-        f"2. Комиссия проекта составляет 5% с каждого выигрыша.\n"
-        f"3. Игры проводятся честно через встроенные кубики Telegram.\n"
-        f"4. При пополнении обязательно отправляйте скриншот чека!"
-    )
+    text = "ℹ️ <b>Правила DRH CASINO</b>\n\n1. Минимум пополнения — 100 RUB.\n2. Комиссия — 5%.\n3. При пополнении ОБЯЗАТЕЛЬНО скриншот чека!"
     await bot.send_photo(m.chat.id, photo=IMG_RULES, caption=text)
 
-# ================== 4. ЛОГИКА ПОПОЛНЕНИЯ ==================
+# ================== 4. ПОПОЛНЕНИЕ (СБП) ==================
 
 @dp.callback_query_handler(lambda c: c.data == "sbp_dep", state="*")
 async def sbp_dep(c: types.CallbackQuery):
-    await c.message.answer("💰 <b>Введите желаемую сумму пополнения в RUB:</b>")
+    await c.message.answer("💰 <b>Введите сумму пополнения в RUB:</b>")
     await DepositState.waiting_for_amount.set()
     await c.answer()
 
@@ -116,57 +105,56 @@ async def sbp_dep(c: types.CallbackQuery):
 async def sbp_amount(m: types.Message, state: FSMContext):
     try:
         amount = float(m.text.replace(',', '.'))
-        if amount < 1: return await m.answer("❌ Введите корректную сумму")
         await state.update_data(amount=amount)
-        
         text = (
             f"🏆 <b>Пополнение баланса:</b>\n\n"
-            f"ℹ️ Чтобы пополнить баланс пожалуйста скиньте желаемую сумму на реквизиты и <b>ОБЯЗАТЕЛЬНО</b> отправьте скриншот (не файл) чек оплаты, иначе без него я не отправлю денежные средства!\n\n"
-            f"🎯 Реквизиты для пополнения - <code>{CARD_REQUISITES}</code>\n\n"
-            f"⁉️ После отправки скриншота ожидайте некоторое время и баланс пополнится!"
+            f"ℹ️ Чтобы пополнить баланс пожалуйста скиньте желаемую сумму на реквизиты и <b>ОБЯЗАТЕЛЬНО</b> отправьте скриншот (не файл) чек оплаты!\n\n"
+            f"🎯 Реквизиты - <code>{CARD_REQUISITES}</code>\n\n"
+            f"⁉️ Ожидайте, баланс пополнится после проверки!"
         )
         await m.answer(text)
         await DepositState.waiting_for_check.set()
-    except: await m.answer("❌ Пожалуйста, введите сумму числом.")
+    except: await m.answer("❌ Введите сумму числом.")
 
 @dp.message_handler(content_types=['photo'], state=DepositState.waiting_for_check)
 async def sbp_check(m: types.Message, state: FSMContext):
     data = await state.get_data()
     amount = data.get('amount', 0)
     await state.finish()
+    await m.answer("⏳ <b>Скриншот отправлен на проверку!</b>")
     
-    await m.answer("⏳ <b>Ваш скриншот отправлен на проверку!</b>\nОжидайте зачисления средств.")
-    
-    kb = types.InlineKeyboardMarkup()
-    kb.add(types.InlineKeyboardButton(f"✅ Зачислить {amount}₽", callback_data=f"adm_ok_{m.from_user.id}_{amount}"),
-           types.InlineKeyboardButton("❌ Отклонить", callback_data=f"adm_no_{m.from_user.id}"))
-    
+    kb = types.InlineKeyboardMarkup().add(
+        types.InlineKeyboardButton(f"✅ Одобрить {amount}₽", callback_data=f"adm_ok_{m.from_user.id}_{amount}"),
+        types.InlineKeyboardButton("❌ Отклонить", callback_data=f"adm_no_{m.from_user.id}")
+    )
     await bot.send_photo(ADMIN_ID, photo=m.photo[-1].file_id, 
-                         caption=f"🔔 <b>НОВЫЙ ЧЕК</b>\nИгрок: {m.from_user.mention} (ID: <code>{m.from_user.id}</code>)\nСумма: <b>{amount} RUB</b>", 
-                         reply_markup=kb)
+                         caption=f"🔔 <b>ЧЕК:</b> {m.from_user.mention}\nСумма: {amount} RUB", reply_markup=kb)
 
-# --- ПОДТВЕРЖДЕНИЕ АДМИНОМ ---
 @dp.callback_query_handler(lambda c: c.data.startswith('adm_'))
 async def admin_decision(c: types.CallbackQuery):
     data = c.data.split('_')
-    action = data[1]
-    user_id = int(data[2])
+    action, user_id = data[1], int(data[2])
     
     if action == 'ok':
         amount = float(data[3])
         update_balance(user_id, amount)
+        user = get_user(user_id)
+        # 1. Сообщение пользователю
+        await bot.send_message(user_id, f"✅ <b>Зачислено: {amount} RUB</b>")
+        # 2. Сообщение в общий чат с картинкой
         try:
-            await bot.send_message(user_id, f"✅ <b>Баланс пополнен!</b>\nЗачислено: <b>{amount} RUB</b>\nУдачи в играх! 🎰")
-        except: pass
-        await c.message.edit_caption(f"✅ ОДОБРЕНО. Зачислено {amount} RUB для ID {user_id}")
+            chat_text = f"💰 <b>НОВОЕ ПОПОЛНЕНИЕ!</b>\n\n👤 Игрок: {user['name']}\n💵 Сумма: <b>{amount} RUB</b>\n\nЖелаем удачных игр в DRH CASINO! 🎲"
+            await bot.send_photo(GROUP_ID, photo=IMG_SUCCESS_PAY, caption=chat_text)
+        except Exception as e: logging.error(f"Chat notify error: {e}")
+        
+        await c.message.edit_caption(f"✅ ОДОБРЕНО для {user_id}")
     else:
-        try:
-            await bot.send_message(user_id, "❌ <b>Ваш чек был отклонен администратором.</b>\nЕсли вы уверены в оплате, свяжитесь с поддержкой.")
-        except: pass
-        await c.message.edit_caption(f"❌ ОТКЛОНЕНО для ID {user_id}")
+        await bot.send_message(user_id, "❌ <b>Чек отклонен администратором.</b>")
+        await c.message.edit_caption(f"❌ ОТКЛОНЕНО для {user_id}")
     await c.answer()
 
-# --- КОМАНДЫ БАЛАНСА В ЧАТЕ ---
+# ================== 5. ИГРЫ И ЧАТ ==================
+
 @dp.message_handler(commands=['бал', 'b', 'bal'], state="*")
 @dp.message_handler(lambda m: m.text and m.text.lower() in ['бал', 'b', 'bal'], state="*")
 async def chat_bal(m: types.Message):
@@ -174,7 +162,6 @@ async def chat_bal(m: types.Message):
     bal = u['balance'] if u else 0.0
     await m.reply(f"💰 Ваш баланс: <b>{bal} RUB</b>")
 
-# --- ИГРОВАЯ ЛОГИКА ---
 @dp.message_handler(commands=['game'], state="*")
 async def start_game(m: types.Message):
     if m.chat.id == m.from_user.id: return 
@@ -227,7 +214,7 @@ async def join_game(c: types.CallbackQuery):
 @dp.message_handler(lambda m: m.text == "🚀 Чат проекта", state="*")
 async def project_chat(m: types.Message):
     kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("➡️ В ЧАТ", url=CHAT_LINK))
-    await bot.send_message(m.chat.id, "Заходи в наш чат и играй с другими!", reply_markup=kb)
+    await bot.send_message(m.chat.id, "Заходи в чат и играй!", reply_markup=kb)
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
