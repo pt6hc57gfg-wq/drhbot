@@ -371,5 +371,12 @@ async def support(m: types.Message, state: FSMContext):
 async def chat_bal(m: types.Message, state: FSMContext):
     u = get_user(m.from_user.id); bal = u['balance'] if u else 0.0; await m.reply(f"💰 Ваш баланс: <b>{bal} RUB</b>")
 
+# Находим этот кусок в самом низу и меняем его:
 if __name__ == "__main__":
+    # Запускаем веб-сервер в отдельном потоке
+    # Это нужно, чтобы Render видел живой порт
+    threading.Thread(target=run_web, daemon=True).start()
+    
+    # Запускаем бота
+    print("Бот запущен...")
     executor.start_polling(dp, skip_updates=True)
