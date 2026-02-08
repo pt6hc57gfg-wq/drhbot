@@ -1,6 +1,6 @@
 aiogram==2.25.1
-supabase
-aiocryptopay
+supabase==2.3.0
+
 
 
 
