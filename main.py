@@ -11,7 +11,7 @@ from supabase import create_client, Client
 SUPABASE_URL = "https://nlaadpwjsgwurbxtjyim.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYWFkcHdqc2d3dXJieHRqeWltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzOTYzMTcsImV4cCI6MjA4NTk3MjMxN30.T3h8LomhBI7bjIdXRMQMwUlhVobFQzJhvMlfg_BYFBg"
 
-TOKEN = "8390269866:AAHhAC9qEnUCauTQAVR23f9kHRWxUBwy6Nw"
+TOKEN = "8390269866:AAHDwV--wncokZ4yLCGLyAnJ6voebGtZcLk"
 ADMIN_ID = 8415442561  # Твой ID для проверки чеков         
 GROUP_ID = -1003872240307 # ID чата для уведомлений      
 CHAT_LINK = "https://t.me/drhcasino_chat"
