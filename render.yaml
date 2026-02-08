@@ -1,10 +1,14 @@
 services:
-  - type: worker
+  - type: web
     name: drh-casino-bot
-    env: python
-    buildCommand: "pip install aiogram==2.25.1 supabase==2.3.0 httpx==0.27.2"
-    startCommand: "python main.py"
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
     envVars:
+      - key: PORT
+        value: 8080
       - key: PYTHON_VERSION
-        value: 3.10.10
+        value: 3.10.0
+
 
