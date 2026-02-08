@@ -1,3 +1,21 @@
+import threading
+from flask import Flask
+
+# Создаем маленькое приложение Flask
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бот запущен!"
+
+def run_web():
+    # Render прокидывает порт в переменную окружения PORT
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# Запускаем сервер в фоновом потоке
+threading.Thread(target=run_web).start()
 import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types, executor
