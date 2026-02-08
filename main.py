@@ -29,7 +29,7 @@ SUPABASE_URL = "https://nlaadpwjsgwurbxtjyim.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYWFkcHdqc2d3dXJieHRqeWltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzOTYzMTcsImV4cCI6MjA4NTk3MjMxN30.T3h8LomhBI7bjIdXRMQMwUlhVobFQzJhvMlfg_BYFBg"
 
 # ВСТАВЬ СВОЙ НОВЫЙ ТОКЕН ТУТ:
-TOKEN = "8390269866:AAHDwV--wncokZ4yLCGLyAnJ6voebGtZcLk" 
+TOKEN = "8390269866:AAGAd9x0maUU-eIpODOrw-yAkFi73rFJ73k" 
 
 ADMIN_ID = 8415442561             
 GROUP_ID = -1003872240307       
