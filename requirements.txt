@@ -1,5 +1,7 @@
 aiogram==2.25.1
 supabase==2.3.0
+Babel==2.9.1
+
 
 
 
